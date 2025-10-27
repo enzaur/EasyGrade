@@ -2,9 +2,12 @@
   import { onMount } from 'svelte';
   import { supabase } from '../lib/supabase';
   import { fly } from 'svelte/transition';
-  import { Settings, BadgeCheckIcon } from 'lucide-svelte';
+  import { Settings, BadgeCheckIcon, Eye, EyeOff } from 'lucide-svelte';
 
   import { Button, Input, Label, Toast } from 'flowbite-svelte';
+  
+  let showPassword = false;
+  let showConfirmPassword = false;
 
 
   interface SchoolYear { school_year_id: number; school_year: string }
@@ -312,13 +315,19 @@
   }
 
   // Account management (no Supabase Auth). Manage current instructor via DB + localStorage
-  interface Instructor { instructor_id: number; instructor_name: string; instructor_user_id: string }
+  interface Instructor { 
+    instructor_id: number; 
+    instructor_name: string; 
+    instructor_user_id: string;
+    is_admin: boolean;
+  }
   let instructors: Instructor[] = [];
   let selectedInstructorId: string | number = '';
   let nameDraft = '';
   let userIdDraft = '';
   let passwordDraft = '';
   let confirmPasswordDraft = '';
+  let currentInstructor: Instructor | null = null;
 
   function loadSelectedInstructorFromStorage() {
     const v = localStorage.getItem('current_instructor_id');
@@ -330,21 +339,46 @@
   }
 
   async function loadInstructors() {
-    const { data, error } = await supabase.from('instructor').select('instructor_id, instructor_name, instructor_user_id').order('instructor_name', { ascending: true });
+    const { data, error } = await supabase.from('instructor')
+      .select('instructor_id, instructor_name, instructor_user_id, is_admin')
+      .order('instructor_name', { ascending: true });
     if (!error) instructors = data as any || [];
+    // Update current instructor
+    if (selectedInstructorId) {
+      currentInstructor = instructors.find(i => i.instructor_id === Number(selectedInstructorId)) || null;
+    }
   }
 
-  function syncNameDraft() {
+  async function syncNameDraft() {
     const inst = instructors.find(i => i.instructor_id === Number(selectedInstructorId));
     nameDraft = inst?.instructor_name || '';
     userIdDraft = inst?.instructor_user_id || '';
-    passwordDraft = '';
-    confirmPasswordDraft = '';
+    
+    if (inst) {
+      // Fetch password from database
+      const { data, error } = await supabase
+        .from('instructor')
+        .select('password')
+        .eq('instructor_id', inst.instructor_id)
+        .single();
+      
+      if (!error && data) {
+        passwordDraft = data.password;
+        confirmPasswordDraft = data.password;
+      } else {
+        passwordDraft = '';
+        confirmPasswordDraft = '';
+      }
+    } else {
+      passwordDraft = '';
+      confirmPasswordDraft = '';
+    }
   }
 
   onMount(async () => {
     loadSelectedInstructorFromStorage();
     await loadInstructors();
+    currentInstructor = instructors.find(i => i.instructor_id === Number(selectedInstructorId)) || null;
     syncNameDraft();
   });
 
@@ -352,6 +386,7 @@
     persistSelectedInstructor();
     syncNameDraft();
     isCreatingAccount = false;
+    currentInstructor = instructors.find(i => i.instructor_id === Number(selectedInstructorId)) || null;
   }
 
 
@@ -408,21 +443,31 @@
     <div class="flex flex-col lg:flex-row gap-4 items-start lg:items-end mb-6">
       <div class="flex-1">
         <label class="block text-sm font-medium text-gray-700 mb-2">Select Instructor</label>
-        <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" bind:value={selectedInstructorId} onchange={onChangeInstructor}>
-          <option value="">Choose an instructor...</option>
-          {#each instructors as inst}
-            <option value={inst.instructor_id}>{inst.instructor_name}</option>
-          {/each}
-        </select>
+        {#if currentInstructor?.is_admin}
+          <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" bind:value={selectedInstructorId} onchange={onChangeInstructor}>
+            <option value="">Choose an instructor...</option>
+            {#each instructors as inst}
+              <option value={inst.instructor_id}>{inst.instructor_name}</option>
+            {/each}
+          </select>
+        {:else}
+          <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" bind:value={selectedInstructorId} onchange={onChangeInstructor} disabled={!isCreatingAccount}>
+            {#each instructors.filter(i => i.instructor_id === Number(selectedInstructorId)) as inst}
+              <option value={inst.instructor_id}>{inst.instructor_name}</option>
+            {/each}
+          </select>
+        {/if}
       </div>
-      <div class="flex gap-2">
-        <button class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 font-medium hover:bg-gray-50 transition-colors" onclick={startNewAccount}>
-          + New
-        </button>
-        <button class="px-4 py-2 bg-red-600 text-white text-sm rounded-lg font-medium hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors" onclick={deleteAccount} disabled={!selectedInstructorId}>
-          Delete
-        </button>
-      </div>
+      {#if currentInstructor?.is_admin}
+        <div class="flex gap-2">
+          <button class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 font-medium hover:bg-gray-50 transition-colors" onclick={startNewAccount}>
+            + New
+          </button>
+          <button class="px-4 py-2 bg-red-600 text-white text-sm rounded-lg font-medium hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors" onclick={deleteAccount} disabled={!selectedInstructorId || selectedInstructorId === currentInstructor?.instructor_id}>
+            Delete
+          </button>
+        </div>
+      {/if}
     </div>
 
     <!-- Edit Form -->
@@ -437,11 +482,51 @@
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-        <input type="password" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 disabled:bg-gray-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="••••••" bind:value={passwordDraft} disabled={!isCreatingAccount && !isEditingAccount} />
+        <div class="relative">
+          <input 
+            type={showPassword ? "text" : "password"} 
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 disabled:bg-gray-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500" 
+            placeholder="••••••" 
+            bind:value={passwordDraft} 
+            disabled={!isCreatingAccount && !isEditingAccount} 
+          />
+          <button 
+            type="button"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            onclick={() => showPassword = !showPassword}
+            disabled={!isCreatingAccount && !isEditingAccount}
+          >
+            {#if showPassword}
+              <EyeOff class="w-4 h-4" />
+            {:else}
+              <Eye class="w-4 h-4" />
+            {/if}
+          </button>
+        </div>
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
-        <input type="password" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 disabled:bg-gray-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="••••••" bind:value={confirmPasswordDraft} disabled={!isCreatingAccount && !isEditingAccount} />
+        <div class="relative">
+          <input 
+            type={showConfirmPassword ? "text" : "password"} 
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 disabled:bg-gray-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500" 
+            placeholder="••••••" 
+            bind:value={confirmPasswordDraft} 
+            disabled={!isCreatingAccount && !isEditingAccount} 
+          />
+          <button 
+            type="button"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            onclick={() => showConfirmPassword = !showConfirmPassword}
+            disabled={!isCreatingAccount && !isEditingAccount}
+          >
+            {#if showConfirmPassword}
+              <EyeOff class="w-4 h-4" />
+            {:else}
+              <Eye class="w-4 h-4" />
+            {/if}
+          </button>
+        </div>
       </div>
     </div>
 

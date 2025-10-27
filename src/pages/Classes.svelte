@@ -351,31 +351,31 @@
       <Table class="w-full">
         <TableHead class="bg-gray-100">
           <TableHeadCell
-            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >Code</TableHeadCell
           >
           <TableHeadCell
-            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >Name</TableHeadCell
           >
           <TableHeadCell
-            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >Section</TableHeadCell
           >
           <TableHeadCell
-            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >School Year</TableHeadCell
           >
           <TableHeadCell
-            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >Instructor</TableHeadCell
           >
           <TableHeadCell
-            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >Students</TableHeadCell
           >
           <TableHeadCell
-            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+            class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
             >Actions</TableHeadCell
           >
         </TableHead>
@@ -383,25 +383,25 @@
           {#if loading}
             {#each Array(5) as _, i (i)}
               <TableBodyRow class="hover:bg-gray-50">
-                <TableBodyCell class="px-6 py-4">
+                <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2">
                   <div class="h-4 bg-gray-200 rounded animate-pulse w-16"></div>
                 </TableBodyCell>
-                <TableBodyCell class="px-6 py-4">
+                <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2">
                   <div class="h-4 bg-gray-200 rounded animate-pulse w-32"></div>
                 </TableBodyCell>
-                <TableBodyCell class="px-6 py-4">
+                <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2">
                   <div class="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
                 </TableBodyCell>
-                <TableBodyCell class="px-6 py-4">
+                <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2">
                   <div class="h-4 bg-gray-200 rounded animate-pulse w-20"></div>
                 </TableBodyCell>
-                <TableBodyCell class="px-6 py-4">
+                <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2">
                   <div class="h-4 bg-gray-200 rounded animate-pulse w-28"></div>
                 </TableBodyCell>
-                <TableBodyCell class="px-6 py-4">
+                <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2">
                   <div class="flex gap-2">
-                    <div class="h-8 bg-gray-200 rounded animate-pulse w-12"></div>
-                    <div class="h-8 bg-gray-200 rounded animate-pulse w-16"></div>
+                    <div class="h-6 bg-gray-200 rounded animate-pulse w-12"></div>
+                    <div class="h-6 bg-gray-200 rounded animate-pulse w-16"></div>
                   </div>
                 </TableBodyCell>
               </TableBodyRow>
@@ -419,31 +419,33 @@
             {:else}
               {#each filteredClasses as cls (cls.class_id)}
                 <TableBodyRow class="hover:bg-gray-50">
-                  <TableBodyCell class="px-6 py-4 text-sm font-medium text-gray-900">
+                  <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-gray-700 border-r border-gray-200">
                     {cls.class_code}
                   </TableBodyCell>
-                  <TableBodyCell class="px-6 py-4 text-sm text-gray-500">
+                  <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs text-gray-500">
                     {cls.class_name}
                   </TableBodyCell>
-                  <TableBodyCell class="px-6 py-4 text-sm text-gray-500">
+                  <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs text-gray-500">
                     {cls.section}
                   </TableBodyCell>
-                  <TableBodyCell class="px-6 py-4 text-sm text-gray-500">
+                  <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs text-gray-500">
                     {cls.schoolyear?.school_year || ""}
                   </TableBodyCell>
-                  <TableBodyCell class="px-6 py-4 text-sm text-gray-500">
+                  <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs text-gray-500">
                     {cls.instructor?.instructor_name || ""}
                   </TableBodyCell>
-                  <TableBodyCell class="px-6 py-4 text-sm text-gray-500">
+                  <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs text-gray-500">
                     {cls.students_count ?? 0}
                   </TableBodyCell>
-                  <TableBodyCell class="px-6 py-4 text-sm text-gray-500">
-                    <Button onclick={() => openEdit(cls)} class="text-blue-600 hover:text-blue-900 mr-3">
-                      Edit
-                    </Button>
-                    <Button onclick={() => openDeleteModal(cls)} class="text-red-600 hover:text-red-900">
-                      Archive
-                    </Button>
+                  <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs">
+                    <div class="flex items-center gap-2">
+                      <button onclick={() => openEdit(cls)} class="text-blue-600 hover:text-blue-900 text-xs px-2 py-1">
+                        Edit
+                      </button>
+                      <button onclick={() => openDeleteModal(cls)} class="text-red-600 hover:text-red-900 text-xs px-2 py-1">
+                        Archive
+                      </button>
+                    </div>
                   </TableBodyCell>
                 </TableBodyRow>
               {/each}

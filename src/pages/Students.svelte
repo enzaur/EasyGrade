@@ -607,32 +607,32 @@ async function fetchStudents() {
     <div class="overflow-x-auto">
       <Table class="w-full">
         <TableHead class="bg-gray-100">
-            <TableHeadCell class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <TableHeadCell class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <button class="flex items-center gap-1" onclick={() => toggleSort('student_code')}>
                 STUDENT ID <span class="text-gray-400">{getSortIcon('student_code')}</span>
               </button>
             </TableHeadCell>
-            <TableHeadCell class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <TableHeadCell class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <button class="flex items-center gap-1" onclick={() => toggleSort('student_name')}>
                 NAME <span class="text-gray-400">{getSortIcon('student_name')}</span>
               </button>
             </TableHeadCell>
-            <TableHeadCell class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <TableHeadCell class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <button class="flex items-center gap-1" onclick={() => toggleSort('class_name')}>
                 CLASS <span class="text-gray-400">{getSortIcon('class_name')}</span>
               </button>
             </TableHeadCell>
-            <TableHeadCell class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <TableHeadCell class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <button class="flex items-center gap-1" onclick={() => toggleSort('section')}>
                 SECTION <span class="text-gray-400">{getSortIcon('section')}</span>
               </button>
             </TableHeadCell>
-            <TableHeadCell class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <TableHeadCell class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               <button class="flex items-center gap-1" onclick={() => toggleSort('school_year')}>
                 SCHOOL YEAR <span class="text-gray-400">{getSortIcon('school_year')}</span>
               </button>
             </TableHeadCell>
-            <TableHeadCell class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</TableHeadCell>
+            <TableHeadCell class="px-2 sm:px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</TableHeadCell>
           </TableHead>
         <TableBody class="bg-white divide-y divide-gray-200">
           {#if loading}
@@ -673,28 +673,30 @@ async function fetchStudents() {
           {:else}
             {#each paginatedStudents as student, index}
               <TableBodyRow class="hover:bg-gray-50">
-                <TableBodyCell class="px-6 py-4 text-sm font-medium text-gray-900">
+                <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs font-medium text-gray-700 border-r border-gray-200">
                   {student.student_code}
                 </TableBodyCell>
-                <TableBodyCell class="px-6 py-4 text-sm text-gray-500">
+                <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs text-gray-900">
                   {student.student_name}
                 </TableBodyCell>
-                <TableBodyCell class="px-6 py-4 text-sm text-gray-500">
+                <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs text-gray-500">
                   {student.class?.class_name || "N/A"}
                 </TableBodyCell>
-                <TableBodyCell class="px-6 py-4 text-sm text-gray-500">
+                <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs text-gray-500">
                   {student.class?.section || "N/A"}
                 </TableBodyCell>
-                <TableBodyCell class="px-6 py-4 text-sm text-gray-500">
+                <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs text-gray-500">
                   {student.class?.schoolyear?.school_year || "N/A"}
                 </TableBodyCell>
-                <TableBodyCell>
-                  <Button
-                  class="text-blue-600 hover:text-blue-900 mr-3" onclick={() => openEditStudentModal(student)}>Edit</Button
-                >
-                <Button
-                  class="text-red-600 hover:text-red-900" onclick={() => openDeleteStudentModal(student)}>Delete</Button
-                >
+                <TableBodyCell class="px-2 sm:px-3 py-1.5 sm:py-2 text-xs">
+                  <div class="flex items-center gap-2">
+                    <button class="text-blue-600 hover:text-blue-900 text-xs px-2 py-1" onclick={() => openEditStudentModal(student)}>
+                      Edit
+                    </button>
+                    <button class="text-red-600 hover:text-red-900 text-xs px-2 py-1" onclick={() => openDeleteStudentModal(student)}>
+                      Delete
+                    </button>
+                  </div>
                 </TableBodyCell>
               </TableBodyRow>
             {/each}
