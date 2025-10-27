@@ -1,0 +1,98 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.attendance (
+  attendance_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  class_id bigint NOT NULL,
+  student_id bigint NOT NULL,
+  attendance_date date NOT NULL DEFAULT CURRENT_DATE,
+  status text NOT NULL CHECK (status = ANY (ARRAY['Present'::text, 'Absent'::text])),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  term_id bigint,
+  CONSTRAINT attendance_pkey PRIMARY KEY (attendance_id),
+  CONSTRAINT attendance_class_fkey FOREIGN KEY (class_id) REFERENCES public.class(class_id),
+  CONSTRAINT attendance_student_fkey FOREIGN KEY (student_id) REFERENCES public.student(student_id),
+  CONSTRAINT attendance_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.term(term_id)
+);
+CREATE TABLE public.class (
+  class_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL UNIQUE,
+  class_name text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  class_code character varying NOT NULL,
+  section character varying NOT NULL UNIQUE,
+  instructor bigint NOT NULL,
+  school_year bigint,
+  is_archived boolean,
+  CONSTRAINT class_pkey PRIMARY KEY (class_id),
+  CONSTRAINT class_school_year_fkey FOREIGN KEY (school_year) REFERENCES public.schoolyear(school_year_id),
+  CONSTRAINT class_instructor_fkey FOREIGN KEY (instructor) REFERENCES public.instructor(instructor_id)
+);
+CREATE TABLE public.grade (
+  grade_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  updated_at timestamp without time zone NOT NULL DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  grade_value double precision NOT NULL,
+  student_grade bigint NOT NULL,
+  term_grade bigint NOT NULL,
+  grade_component bigint NOT NULL,
+  school_year bigint NOT NULL,
+  CONSTRAINT grade_pkey PRIMARY KEY (grade_id),
+  CONSTRAINT grade_student_grade_fkey FOREIGN KEY (student_grade) REFERENCES public.student(student_id),
+  CONSTRAINT grade_term_grade_fkey FOREIGN KEY (term_grade) REFERENCES public.term(term_id),
+  CONSTRAINT grade_grade_component_fkey FOREIGN KEY (grade_component) REFERENCES public.grade_component(component_id),
+  CONSTRAINT grade_school_year_fkey FOREIGN KEY (school_year) REFERENCES public.schoolyear(school_year_id)
+);
+CREATE TABLE public.grade_component (
+  component_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  component_name character varying NOT NULL,
+  created_at timestamp without time zone NOT NULL DEFAULT now(),
+  updated_at timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT grade_component_pkey PRIMARY KEY (component_id)
+);
+CREATE TABLE public.grade_component_items (
+  item_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  class_id bigint NOT NULL,
+  component_id bigint NOT NULL,
+  title text NOT NULL,
+  number_of_items integer NOT NULL CHECK (number_of_items > 0),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  term_id bigint,
+  CONSTRAINT grade_component_items_pkey PRIMARY KEY (item_id),
+  CONSTRAINT grade_component_items_class_fkey FOREIGN KEY (class_id) REFERENCES public.class(class_id),
+  CONSTRAINT grade_component_items_component_fkey FOREIGN KEY (component_id) REFERENCES public.grade_component(component_id),
+  CONSTRAINT grade_component_items_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.term(term_id)
+);
+CREATE TABLE public.grade_percentage (
+  percentage_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  percentage double precision NOT NULL,
+  component bigint NOT NULL,
+  CONSTRAINT grade_percentage_pkey PRIMARY KEY (percentage_id),
+  CONSTRAINT grade_percentage_component_fkey FOREIGN KEY (component) REFERENCES public.grade_component(component_id)
+);
+CREATE TABLE public.instructor (
+  instructor_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  instructor_name text NOT NULL,
+  password character varying,
+  instructor_user_id character varying NOT NULL,
+  CONSTRAINT instructor_pkey PRIMARY KEY (instructor_id)
+);
+CREATE TABLE public.schoolyear (
+  school_year_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  school_year text NOT NULL,
+  CONSTRAINT schoolyear_pkey PRIMARY KEY (school_year_id)
+);
+CREATE TABLE public.student (
+  student_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  student_name text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  class bigint NOT NULL,
+  student_code character varying NOT NULL,
+  CONSTRAINT student_pkey PRIMARY KEY (student_id),
+  CONSTRAINT student_class_fkey FOREIGN KEY (class) REFERENCES public.class(class_id)
+);
+CREATE TABLE public.term (
+  term_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  term_name character varying NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT term_pkey PRIMARY KEY (term_id)
+);
