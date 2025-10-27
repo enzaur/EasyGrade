@@ -266,6 +266,7 @@
         class:bg-green-600={isActive("/gradebook")}
         class:text-white={isActive("/gradebook")}
         class:shadow-md={isActive("/gradebook")}
+        on:click={closeMobileMenu}
       >
         <Table2 class="w-5 h-5" />
         <span class="font-medium">Grade Book</span>
@@ -278,6 +279,7 @@
           class:bg-green-600={isActive("/settings")}
           class:text-white={isActive("/settings")}
           class:shadow-md={isActive("/settings")}
+          on:click={closeMobileMenu}
         >
           <Settings class="w-5 h-5" />
           <span class="font-medium">Settings</span>
@@ -290,6 +292,7 @@
         class:bg-green-600={isActive("/archive")}
         class:text-white={isActive("/archive")}
         class:shadow-md={isActive("/archive")}
+        on:click={closeMobileMenu}
       >
         <ArchiveIcon class="w-5 h-5" />
         <span class="font-medium">Archive</span>

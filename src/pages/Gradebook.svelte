@@ -1834,40 +1834,40 @@ async function exportToPDF() {
 {/if}
 
 {#if showShareModal}
-  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4 font-sans">
-    <div class="bg-white rounded-lg shadow-lg w-full max-w-4xl p-4 sm:p-6 relative">
+  <div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4 font-sans overflow-y-auto">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-4xl p-4 sm:p-6 relative my-auto">
       <button
         onclick={() => showShareModal = false}
-        class="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+        class="absolute top-3 right-3 text-gray-500 hover:text-gray-700 p-2 touch-manipulation"
       >
         <X class="w-5 h-5" />
       </button>
 
       <div class="flex items-center gap-2 mb-4">
-        <Share2 class="w-6 h-6 text-green-600" />
-        <Label class="text-lg font-semibold text-center sm:text-left">
+        <Share2 class="w-6 h-6 text-green-600 flex-shrink-0" />
+        <Label class="text-lg font-semibold text-left">
           Share Class Grade Link
         </Label>
       </div>
 
       <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2 mb-4">
         <AlertCircle class="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
-        <p class="text-xs text-yellow-800">
+        <p class="text-xs sm:text-sm text-yellow-800">
           <strong>Security Notice:</strong> This link will expire in 1 hour. Generate a new link or QR code if needed.
         </p>
       </div>
 
-      <!-- 2 Column Layout -->
-      <div class="grid md:grid-cols-2 gap-6">
+      <!-- Responsive Layout -->
+      <div class="grid sm:grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Left Column: QR Code -->
         <div class="space-y-4">
           <h3 class="text-sm font-semibold text-gray-700">QR Code</h3>
-          <p class="text-xs text-gray-600">Students can scan this QR code to access their grades</p>
+          <p class="text-xs sm:text-sm text-gray-600">Students can scan this QR code to access their grades</p>
           
           {#if qrCodeDataUrl}
             <div class="flex justify-center">
-              <div class="bg-white p-4 rounded-lg border-2 border-gray-200 shadow-sm">
-                <img src={qrCodeDataUrl} alt="QR Code" class="w-64 h-64" />
+              <div class="bg-white p-3 sm:p-4 rounded-lg border-2 border-gray-200 shadow-sm">
+                <img src={qrCodeDataUrl} alt="QR Code" class="w-48 h-48 sm:w-64 sm:h-64" />
               </div>
             </div>
             
@@ -1890,13 +1890,13 @@ async function exportToPDF() {
           <h3 class="text-sm font-semibold text-gray-700">Share Link</h3>
           <p class="text-xs text-gray-600">Copy and share this link with your students</p>
           
-          <div class="bg-gray-50 border border-gray-300 rounded-lg p-3 break-all text-sm text-gray-700 font-mono">
+          <div class="bg-gray-50 border border-gray-300 rounded-lg p-3 break-all text-xs sm:text-sm text-gray-700 font-mono overflow-x-auto">
             {shareLink}
           </div>
 
           <button
             onclick={copyClassShareLink}
-            class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400"
+            class="w-full flex items-center justify-center gap-2 px-4 py-3 sm:py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 active:bg-green-800 transition-colors disabled:bg-gray-400 touch-manipulation"
             disabled={copiedLink}
           >
             {#if copiedLink}
