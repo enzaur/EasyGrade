@@ -162,23 +162,12 @@
 
   // Load itemScores from localStorage on component init
   function loadItemScoresFromStorage() {
-    try {
-      const stored = localStorage.getItem('gradebook_itemScores');
-      if (stored) {
-        itemScores = JSON.parse(stored);
-      }
-    } catch (error) {
-      // Failed to load from storage
-    }
+    // No longer using localStorage - data comes from database
   }
 
   // Save itemScores to localStorage
   function saveItemScoresToStorage() {
-    try {
-      localStorage.setItem('gradebook_itemScores', JSON.stringify(itemScores));
-    } catch (error) {
-      // Failed to save to storage
-    }
+    // No longer using localStorage - data is saved to database
   }
 
   // Load active tab from localStorage
@@ -355,9 +344,6 @@
     
     // Update the state with the new object
     itemScores = newItemScores;
-    
-    // Save to localStorage to persist
-    saveItemScoresToStorage();
   }
 
   async function fetchAttendance(classId: number, yearId: number) {
@@ -524,9 +510,6 @@
               const key = keyItem(record.student_id, item.term_id || 0, item.component_id, record.item_id);
               itemScores[key] = record.score;
               itemScores = itemScores; // Trigger reactivity
-              
-              // Save to localStorage for persistence
-              saveItemScoresToStorage();
               
               // Force reactivity for computed averages by creating a new object
               setTimeout(() => {
@@ -762,9 +745,6 @@
     // Trigger reactivity by reassigning
     itemScores = itemScores;
     updateTrigger++; // Increment to force reactivity
-    
-    // Save to localStorage for persistence
-    saveItemScoresToStorage();
     
     // Debounce database save (wait 500ms after last keystroke)
     const saveKey = `${studentId}-${itemId}`;

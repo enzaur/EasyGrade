@@ -382,11 +382,13 @@
     syncNameDraft();
   });
 
-  function onChangeInstructor() {
-    persistSelectedInstructor();
-    syncNameDraft();
-    isCreatingAccount = false;
-    currentInstructor = instructors.find(i => i.instructor_id === Number(selectedInstructorId)) || null;
+  $: {
+    if (selectedInstructorId) {
+      persistSelectedInstructor();
+      syncNameDraft();
+      isCreatingAccount = false;
+      currentInstructor = instructors.find(i => i.instructor_id === Number(selectedInstructorId)) || null;
+    }
   }
 
 
@@ -395,31 +397,43 @@
     const name = nameDraft.trim();
     const userId = userIdDraft.trim();
 
-    if (!id || !name || !userId) return;
-
-    const updateData: any = { instructor_name: name, instructor_user_id: userId };
-    if (passwordDraft || confirmPasswordDraft) {
-      if (passwordDraft !== confirmPasswordDraft) {
-        showToastNotification('Passwords do not match', 'error');
-        return;
-      }
-      if (passwordDraft.length < 6) {
-        showToastNotification('Password must be at least 6 characters', 'error');
-        return;
-      }
-      updateData.password = passwordDraft;
+    if (!id || !name || !userId) {
+      showToastNotification('Please fill in all required fields', 'error');
+      return;
     }
 
-    const { error } = await supabase.from('instructor').update(updateData).eq('instructor_id', id);
-    if (!error) {
-      showToastNotification('Account updated');
+    try {
+      const updateData: any = { instructor_name: name, instructor_user_id: userId };
+      
+      // Only update password if it was changed
+      if (passwordDraft) {
+        if (passwordDraft !== confirmPasswordDraft) {
+          showToastNotification('Passwords do not match', 'error');
+          return;
+        }
+        if (passwordDraft.length < 6) {
+          showToastNotification('Password must be at least 6 characters', 'error');
+          return;
+        }
+        updateData.password = passwordDraft;
+      }
+
+      const { error } = await supabase
+        .from('instructor')
+        .update(updateData)
+        .eq('instructor_id', id);
+
+      if (error) throw error;
+
+      showToastNotification('Account updated successfully');
       await loadInstructors();
       syncNameDraft();
       isEditingAccount = false;
       passwordDraft = '';
       confirmPasswordDraft = '';
-    } else {
-      showToastNotification('Error updating account: ' + error.message, 'error');
+    } catch (error: any) {
+      console.error('Error updating account:', error);
+      showToastNotification(`Error updating account: ${error.message || 'Unknown error'}`, 'error');
     }
 
   }
@@ -442,16 +456,25 @@
     <!-- Selection and Actions -->
     <div class="flex flex-col lg:flex-row gap-4 items-start lg:items-end mb-6">
       <div class="flex-1">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Select Instructor</label>
+        <label for="select-instructor" class="block text-sm font-medium text-gray-700 mb-2">Select Instructor</label>
         {#if currentInstructor?.is_admin}
-          <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" bind:value={selectedInstructorId} onchange={onChangeInstructor}>
+          <select 
+            id="select-instructor"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" 
+            bind:value={selectedInstructorId}
+          >
             <option value="">Choose an instructor...</option>
             {#each instructors as inst}
               <option value={inst.instructor_id}>{inst.instructor_name}</option>
             {/each}
           </select>
         {:else}
-          <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" bind:value={selectedInstructorId} onchange={onChangeInstructor} disabled={!isCreatingAccount}>
+          <select 
+            id="select-instructor"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" 
+            bind:value={selectedInstructorId} 
+            disabled={!isCreatingAccount}
+          >
             {#each instructors.filter(i => i.instructor_id === Number(selectedInstructorId)) as inst}
               <option value={inst.instructor_id}>{inst.instructor_name}</option>
             {/each}
@@ -460,10 +483,17 @@
       </div>
       {#if currentInstructor?.is_admin}
         <div class="flex gap-2">
-          <button class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 font-medium hover:bg-gray-50 transition-colors" onclick={startNewAccount}>
+          <button 
+            class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 font-medium hover:bg-gray-50 transition-colors" 
+            onclick={startNewAccount}
+          >
             + New
           </button>
-          <button class="px-4 py-2 bg-red-600 text-white text-sm rounded-lg font-medium hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors" onclick={deleteAccount} disabled={!selectedInstructorId || selectedInstructorId === currentInstructor?.instructor_id}>
+          <button 
+            class="px-4 py-2 bg-red-600 text-white text-sm rounded-lg font-medium hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors" 
+            onclick={deleteAccount} 
+            disabled={!selectedInstructorId || selectedInstructorId === currentInstructor?.instructor_id}
+          >
             Delete
           </button>
         </div>
@@ -473,28 +503,43 @@
     <!-- Edit Form -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Instructor ID</label>
-        <input class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 disabled:bg-gray-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g. juan.dcruz" bind:value={userIdDraft} disabled={!isCreatingAccount && !isEditingAccount} />
+        <label for="instructor-id" class="block text-sm font-medium text-gray-700 mb-2">Instructor ID</label>
+        <input 
+          id="instructor-id"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 disabled:bg-gray-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500" 
+          placeholder="e.g. juan.dcruz" 
+          bind:value={userIdDraft} 
+          disabled={!isCreatingAccount && !isEditingAccount} 
+        />
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Name</label>
-        <input class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 disabled:bg-gray-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g. Juan Dela Cruz" bind:value={nameDraft} disabled={!isCreatingAccount && !isEditingAccount} />
+        <label for="instructor-name" class="block text-sm font-medium text-gray-700 mb-2">Name</label>
+        <input 
+          id="instructor-name"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 disabled:bg-gray-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500" 
+          placeholder="e.g. Juan Dela Cruz" 
+          bind:value={nameDraft} 
+          disabled={!isCreatingAccount && !isEditingAccount} 
+        />
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+        <label for="password" class="block text-sm font-medium text-gray-700 mb-2">Password</label>
         <div class="relative">
           <input 
+            id="password"
             type={showPassword ? "text" : "password"} 
             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 disabled:bg-gray-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500" 
             placeholder="••••••" 
             bind:value={passwordDraft} 
             disabled={!isCreatingAccount && !isEditingAccount} 
+            aria-label="Password"
           />
           <button 
             type="button"
             class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
             onclick={() => showPassword = !showPassword}
             disabled={!isCreatingAccount && !isEditingAccount}
+            aria-label={showPassword ? "Hide password" : "Show password"}
           >
             {#if showPassword}
               <EyeOff class="w-4 h-4" />
@@ -505,20 +550,23 @@
         </div>
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+        <label for="confirm-password" class="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
         <div class="relative">
           <input 
+            id="confirm-password"
             type={showConfirmPassword ? "text" : "password"} 
             class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 disabled:bg-gray-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500" 
             placeholder="••••••" 
             bind:value={confirmPasswordDraft} 
             disabled={!isCreatingAccount && !isEditingAccount} 
+            aria-label="Confirm password"
           />
           <button 
             type="button"
             class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
             onclick={() => showConfirmPassword = !showConfirmPassword}
             disabled={!isCreatingAccount && !isEditingAccount}
+            aria-label={showConfirmPassword ? "Hide confirmed password" : "Show confirmed password"}
           >
             {#if showConfirmPassword}
               <EyeOff class="w-4 h-4" />
@@ -566,9 +614,13 @@
 
       <!-- Current Selection -->
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Current School Year</label>
+        <label for="current-school-year" class="block text-sm font-medium text-gray-700 mb-2">Current School Year</label>
         <div class="flex gap-2">
-          <select class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" bind:value={selectedCurrentSY}>
+          <select 
+            id="current-school-year"
+            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" 
+            bind:value={selectedCurrentSY}
+          >
             <option value="">Select school year...</option>
             {#each schoolYears as sy}
               <option value={sy.school_year_id}>{sy.school_year}</option>
@@ -582,9 +634,14 @@
 
       <!-- Add New -->
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">Add New School Year</label>
+        <label for="new-school-year" class="block text-sm font-medium text-gray-700 mb-2">Add New School Year</label>
         <div class="flex gap-2">
-          <input class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g. 2025-2026" bind:value={newSchoolYear} />
+          <input 
+            id="new-school-year"
+            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" 
+            placeholder="e.g. 2025-2026" 
+            bind:value={newSchoolYear} 
+          />
           <button class="px-4 py-2 bg-green-600 text-white text-sm rounded-lg font-medium hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors" onclick={addSchoolYear} disabled={loading}>
             Add
           </button>
@@ -614,9 +671,14 @@
 
       <!-- Add/Edit Form -->
       <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-2">{editingTerm ? 'Edit Term' : 'New Term'}</label>
+        <label for="term-name" class="block text-sm font-medium text-gray-700 mb-2">{editingTerm ? 'Edit Term' : 'New Term'}</label>
         <div class="flex gap-2">
-          <input class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g. First Grading" bind:value={newTermName} />
+          <input 
+            id="term-name"
+            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" 
+            placeholder="e.g. First Grading" 
+            bind:value={newTermName} 
+          />
           {#if editingTerm}
             <button class="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 font-medium hover:bg-gray-50 transition-colors" onclick={cancelEditTerm}>
               Cancel
@@ -674,12 +736,25 @@
     <!-- Add/Edit Form -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">{editingComponent ? 'Edit Component' : 'Component Name'}</label>
-        <input class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g. Written Works" bind:value={newComponentName} />
+        <label for="component-name" class="block text-sm font-medium text-gray-700 mb-2">{editingComponent ? 'Edit Component' : 'Component Name'}</label>
+        <input 
+          id="component-name"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" 
+          placeholder="e.g. Written Works" 
+          bind:value={newComponentName} 
+        />
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">Percentage</label>
-        <input type="number" min="0" max="100" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g. 40" bind:value={newComponentPercentage} />
+        <label for="component-percentage" class="block text-sm font-medium text-gray-700 mb-2">Percentage</label>
+        <input 
+          id="component-percentage"
+          type="number" 
+          min="0" 
+          max="100" 
+          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500" 
+          placeholder="e.g. 40" 
+          bind:value={newComponentPercentage} 
+        />
       </div>
       <div class="flex items-end gap-2">
         {#if editingComponent}
