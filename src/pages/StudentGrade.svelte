@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import { supabase } from "../lib/supabase";
   import { Award, Calendar, BookOpen, Search, AlertCircle, TrendingUp, CheckCircle, XCircle, User, CircleCheck, CircleX, CircleAlert } from 'lucide-svelte';
+  import confetti from 'canvas-confetti';
 
   interface Student {
     student_id: number;
@@ -248,6 +249,14 @@ function getFinalGrade(): number {
 
       student = studentData;
       showForm = false;
+      
+      // Trigger confetti on successful login
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107']
+      });
 
       // Fetch grades from database (what Gradebook calculated and saved)
       if (selectedYearId) {
@@ -854,7 +863,7 @@ function getFinalGrade(): number {
                   Grade Breakdown
                 </h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {#each components as comp, idx}
+                  {#each components.filter(c => c.component_id !== 4) as comp, idx}
                     {@const compAvg = getComponentGrade(term.term_id, comp.component_id) || 0}
                     {@const weight = componentWeights[comp.component_id] || 0}
                     {@const colors = [

@@ -34,6 +34,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.75.1",
     "@tailwindcss/vite": "^4.1.14",
+    "canvas-confetti": "^1.9.4",
     "jspdf": "^2.5.2",
     "jspdf-autotable": "^3.8.4",
     "lucide-svelte": "^0.546.0",
