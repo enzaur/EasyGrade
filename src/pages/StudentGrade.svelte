@@ -54,8 +54,9 @@
   let error = "";
   let selectedYearId: number | null = null;
   let showForm = true;
+  let showConsent = true;
+  let consentGiven = false;
   let realtimeChannel: any = null;
-
 
   // Convert percentage grade to 1.00-3.00 scale
   function convertGradeToScale(percentage: number): string {
@@ -697,6 +698,65 @@ function getFinalGrade(): number {
         <div class="text-red-600 text-6xl mb-4">⚠️</div>
         <h2 class="text-2xl font-bold text-red-800 mb-2">Error</h2>
         <p class="text-red-700">{error}</p>
+      </div>
+    {:else if showConsent}
+      <!-- Consent Dialog -->
+      <div class="bg-white rounded-lg shadow-lg border border-gray-200 p-8 max-w-2xl mx-auto">
+        <div class="text-center mb-8">
+          <img src="/Group 2.png" alt="EasyGrade" class="h-12 w-auto mx-auto mb-6" />
+          <h1 class="text-2xl font-bold text-gray-800 mb-4">Welcome to EasyGrade</h1>
+          <p class="text-gray-600 mb-2">Before you continue, please read and agree to our terms:</p>
+        </div>
+        
+        <div class="bg-gray-50 p-6 rounded-lg border border-gray-200 mb-8 max-h-64 overflow-y-auto">
+          <h2 class="text-lg font-semibold text-gray-800 mb-4">Terms of Use</h2>
+          <div class="text-sm text-gray-600">
+            <ol class="list-decimal pl-5 space-y-2">
+              <li>This system is for educational purposes only.</li>
+              <li>Your grade information is confidential and should not be shared with others.</li>
+              <li>The information displayed is for your personal reference only.</li>
+              <li>Any discrepancies in grades should be reported to your instructor.</li>
+              <li>We respect your privacy and handle your data in accordance with our privacy policy.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-center space-x-4 mb-6">
+          <input 
+            type="checkbox" 
+            id="consentCheckbox" 
+            bind:checked={consentGiven}
+            class="h-5 w-5 text-green-600 rounded border-gray-300 focus:ring-green-500"
+          />
+          <label for="consentCheckbox" class="text-sm font-medium text-gray-700">
+            I agree to the terms and conditions
+          </label>
+        </div>
+
+        <div class="flex flex-col sm:flex-row justify-center gap-4">
+          <button
+            onclick={() => {
+              if (consentGiven) {
+                showConsent = false;
+                showForm = true;
+              }
+            }}
+            class="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!consentGiven}
+          >
+            I Agree - Continue
+          </button>
+          <button
+            onclick={() => {
+              showConsent = false;
+              showForm = false;
+              error = "You must agree to the terms to continue.";
+            }}
+            class="px-6 py-3 bg-white border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+          >
+            I Do Not Agree - Exit
+          </button>
+        </div>
       </div>
     {:else if showForm && classInfo}
       <!-- Student ID Input Form -->
