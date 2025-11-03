@@ -160,14 +160,64 @@
     }
   }
 
-  // Load itemScores from localStorage on component init
-  function loadItemScoresFromStorage() {
-    // No longer using localStorage - data comes from database
-  }
+  // Load itemScores from the database
+  async function fetchItemScores(classId: number) {
+    try {
+      // Get all items for this class
+      const allItems = Object.values(itemsByComponent).flat();
+      const itemIds = allItems.map(it => it.item_id);
+      if (itemIds.length === 0) return;
 
-  // Save itemScores to localStorage
-  function saveItemScoresToStorage() {
-    // No longer using localStorage - data is saved to database
+      // Get students of class
+      const studentIds = filteredStudents.filter(s => s.class_id === classId).map(s => s.student_id);
+      if (studentIds.length === 0) return;
+
+      try {
+        // Try to fetch scores directly
+        const { data, error } = await supabase
+          .from("item_scores")
+          .select("student_id, item_id, score")
+          .in("student_id", studentIds)
+          .in("item_id", itemIds);
+
+        if (error) {
+          if (error.code === '42P01') { // Table doesn't exist
+            console.log('item_scores table does not exist, initializing empty scores');
+            itemScores = {};
+            return;
+          }
+          throw error;
+        }
+
+        // Create a new object to store the scores
+        const newItemScores: Record<string, number> = {};
+        
+        // Process the scores
+        (data || []).forEach((row: any) => {
+          // Find the item to get its component and term
+          const item = allItems.find(it => it.item_id === row.item_id);
+          if (item) {
+            const key = keyItem(row.student_id, item.term_id || 0, item.component_id, row.item_id);
+            newItemScores[key] = row.score || 0;
+          }
+        });
+        
+        // Update the state with the new scores
+        itemScores = newItemScores;
+        
+      } catch (error: any) {
+        if (error.code === '42P01') { // Table doesn't exist
+          console.log('item_scores table does not exist, initializing empty scores');
+          itemScores = {};
+          return;
+        }
+        console.error('Error in fetchItemScores:', error);
+        itemScores = {};
+      }
+    } catch (error) {
+      console.error('Unexpected error in fetchItemScores:', error);
+      itemScores = {};
+    }
   }
 
   // Load active tab from localStorage
@@ -310,40 +360,6 @@
     (data || []).forEach((g: GradeRow) => {
       gradesMap.set(keyGrade(g.student_grade, g.term_grade, g.grade_component, g.school_year), g);
     });
-  }
-
-  async function fetchItemScores(classId: number) {
-    // Get all items for this class
-    const allItems = Object.values(itemsByComponent).flat();
-    const itemIds = allItems.map(it => it.item_id);
-    if (itemIds.length === 0) return;
-
-    // Get students of class
-    const studentIds = filteredStudents.filter(s => s.class_id === classId).map(s => s.student_id);
-    if (studentIds.length === 0) return;
-
-    // Fetch all item scores for these students and items
-    const { data } = await supabase
-      .from("item_scores")
-      .select("student_id, item_id, score")
-      .in("student_id", studentIds)
-      .in("item_id", itemIds);
-
-    // Create a new object to preserve existing data
-    const newItemScores = { ...itemScores };
-    
-    // Only update scores for this class, preserve others
-    (data || []).forEach((row: any) => {
-      // Find the item to get its component and term
-      const item = allItems.find(it => it.item_id === row.item_id);
-      if (item) {
-        const key = keyItem(row.student_id, item.term_id || 0, item.component_id, row.item_id);
-        newItemScores[key] = row.score;
-      }
-    });
-    
-    // Update the state with the new object
-    itemScores = newItemScores;
   }
 
   async function fetchAttendance(classId: number, yearId: number) {
@@ -551,8 +567,7 @@
   }
 
   onMount(async () => {
-    // Load persisted data first
-    loadItemScoresFromStorage();
+    // Load persisted data
     loadActiveTabFromStorage();
     await Promise.all([fetchSchoolYears(), fetchClasses(), fetchStudents(), fetchTermsAndComponents(), fetchComponentWeights()]);
     setupRealtimeSubscriptions();
@@ -580,11 +595,17 @@
   $: if (selectedClassId && selectedYearId) {
     (async () => {
       loadingGrid = true;
-      await fetchItemsForClass(Number(selectedClassId));
-      await fetchItemScores(Number(selectedClassId));
-      await fetchExistingGrades(Number(selectedClassId), Number(selectedYearId));
-      await fetchAttendance(Number(selectedClassId), Number(selectedYearId));
-      loadingGrid = false;
+      try {
+        await fetchItemsForClass(Number(selectedClassId));
+        await fetchExistingGrades(Number(selectedClassId), Number(selectedYearId));
+        await fetchItemScores(Number(selectedClassId));
+        await fetchAttendance(Number(selectedClassId), Number(selectedYearId));
+      } catch (error) {
+        console.error('Error loading grid data:', error);
+        alert('Failed to load grid data. Please try again.');
+      } finally {
+        loadingGrid = false;
+      }
     })();
   }
 
@@ -736,6 +757,47 @@
   let saveTimers: Record<string, any> = {};
 
   // handle change in any item cell - autosave to database
+  async function updateItemScore(studentId: number, termId: number, componentId: number, itemId: number, score: number) {
+    const key = keyItem(studentId, termId, componentId, itemId);
+    
+    try {
+      // First try to update existing score
+      const { data: updateData, error: updateError } = await supabase
+        .from('item_scores')
+        .update({ 
+          score: score,
+          updated_at: new Date().toISOString()
+        })
+        .eq('student_id', studentId)
+        .eq('item_id', itemId);
+      
+      // If no rows were updated, insert a new record
+      if (updateData === null) {
+        const { error: insertError } = await supabase
+          .from('item_scores')
+          .insert([
+            { 
+              student_id: studentId, 
+              item_id: itemId, 
+              score: score 
+            }
+          ]);
+          
+        if (insertError) throw insertError;
+      } else if (updateError) {
+        throw updateError;
+      }
+      
+      // Update local state only after successful database operation
+      itemScores[key] = score;
+      updateTrigger++;
+      
+    } catch (error) {
+      console.error('Error updating item score:', error);
+      alert('Failed to save score. Please try again.');
+    }
+  }
+
   async function onItemChange(studentId: number, termId: number, componentId: number, itemId: number, ev: Event) {
     const val = Number((ev.target as HTMLInputElement).value);
     const score = isNaN(val) || val < 0 ? 0 : val;

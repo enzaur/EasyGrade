@@ -10,9 +10,9 @@ CREATE TABLE public.attendance (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   term_id bigint,
   CONSTRAINT attendance_pkey PRIMARY KEY (attendance_id),
-  CONSTRAINT attendance_class_fkey FOREIGN KEY (class_id) REFERENCES public.class(class_id),
   CONSTRAINT attendance_student_fkey FOREIGN KEY (student_id) REFERENCES public.student(student_id),
-  CONSTRAINT attendance_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.term(term_id)
+  CONSTRAINT attendance_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.term(term_id),
+  CONSTRAINT attendance_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.class(class_id)
 );
 CREATE TABLE public.class (
   class_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL UNIQUE,
@@ -22,7 +22,7 @@ CREATE TABLE public.class (
   section character varying NOT NULL UNIQUE,
   instructor bigint NOT NULL,
   school_year bigint,
-  is_archived boolean,
+  is_archived boolean NOT NULL DEFAULT false,
   CONSTRAINT class_pkey PRIMARY KEY (class_id),
   CONSTRAINT class_school_year_fkey FOREIGN KEY (school_year) REFERENCES public.schoolyear(school_year_id),
   CONSTRAINT class_instructor_fkey FOREIGN KEY (instructor) REFERENCES public.instructor(instructor_id)
@@ -58,9 +58,9 @@ CREATE TABLE public.grade_component_items (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   term_id bigint,
   CONSTRAINT grade_component_items_pkey PRIMARY KEY (item_id),
-  CONSTRAINT grade_component_items_class_fkey FOREIGN KEY (class_id) REFERENCES public.class(class_id),
   CONSTRAINT grade_component_items_component_fkey FOREIGN KEY (component_id) REFERENCES public.grade_component(component_id),
-  CONSTRAINT grade_component_items_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.term(term_id)
+  CONSTRAINT grade_component_items_term_id_fkey FOREIGN KEY (term_id) REFERENCES public.term(term_id),
+  CONSTRAINT grade_component_items_class_id_fkey FOREIGN KEY (class_id) REFERENCES public.class(class_id)
 );
 CREATE TABLE public.grade_percentage (
   percentage_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
@@ -74,7 +74,18 @@ CREATE TABLE public.instructor (
   instructor_name text NOT NULL,
   password character varying,
   instructor_user_id character varying NOT NULL,
+  is_admin boolean,
   CONSTRAINT instructor_pkey PRIMARY KEY (instructor_id)
+);
+CREATE TABLE public.item_scores (
+  score_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  student_id bigint NOT NULL,
+  item_id bigint NOT NULL,
+  score double precision NOT NULL DEFAULT 0,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT item_scores_pkey PRIMARY KEY (score_id),
+  CONSTRAINT item_scores_student_fkey FOREIGN KEY (student_id) REFERENCES public.student(student_id),
+  CONSTRAINT item_scores_item_fkey FOREIGN KEY (item_id) REFERENCES public.grade_component_items(item_id)
 );
 CREATE TABLE public.schoolyear (
   school_year_id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
