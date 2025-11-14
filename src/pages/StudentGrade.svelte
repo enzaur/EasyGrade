@@ -57,6 +57,7 @@
   let showConsent = true;
   let consentGiven = false;
   let realtimeChannel: any = null;
+  let gradesReady = false;
 
   // Convert percentage grade to 1.00-3.00 scale
   function convertGradeToScale(percentage: number): string {
@@ -102,28 +103,14 @@ function getFinalGrade(): number {
   if (!terms.length) return 0;
   let sum = 0;
   let count = 0;
-  console.log(`Terms available: ${terms.map(t => t.term_name || t.term_id).join(', ')}`);
   for (const t of terms) {
     const percentageGrade = getTermGrade(t.term_id);
-    console.log(`Term ${t.term_id} (${t.term_name || 'unknown'}): percentage grade = ${percentageGrade}`);
-    // Skip terms with zero or no grade
     if (percentageGrade > 0) {
-      // Convert percentage to scale (1.00-5.00) before adding to sum
-      const scaleGrade = parseFloat(convertGradeToScale(percentageGrade));
-      if (scaleGrade >= 1.00 && scaleGrade <= 5.00) {
-        sum += scaleGrade;
-        count++;
-        console.log(`  → Converted to ${scaleGrade} (sum now ${sum}, count ${count})`);
-      } else {
-        console.log(`  → Invalid scale grade ${scaleGrade}, skipping`);
-      }
-    } else {
-      console.log(`  → Skipped (≤0)`);
+      sum += percentageGrade;
+      count++;
     }
   }
-  const avg = count > 0 ? +(sum / count).toFixed(2) : 0;
-  console.log(`Final grade: ${avg} (from ${count}/${terms.length} terms)`);
-  return avg;
+  return count > 0 ? +(sum / count).toFixed(2) : 0;
 }
 
   async function loadClassInfo() {
@@ -250,6 +237,7 @@ function getFinalGrade(): number {
 
       student = studentData;
       showForm = false;
+      gradesReady = false;
       
       // Trigger confetti on successful login
       confetti({
@@ -430,6 +418,7 @@ function getFinalGrade(): number {
 
         // Set up realtime subscription for grade updates
         setupRealtimeSubscription(studentData.student_id, selectedYearId);
+        gradesReady = true;
       }
 
     } catch (err) {
@@ -545,6 +534,7 @@ function getFinalGrade(): number {
 
       // Recalculate term grades using existing logic
       recalculateTermGrades();
+      gradesReady = true;
     } catch (err) {
       // ignore transient errors
     }
@@ -830,35 +820,51 @@ function getFinalGrade(): number {
       <!-- Header Section with Final Grade -->
       {@const finalGrade = getFinalGrade()}
       {@const finalGradeScale = convertGradeToScale(finalGrade)}
+      {@const finalPercent = finalGrade.toFixed(2)}
       <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden mb-6">
         <div class="bg-white px-6 py-4">
-          <div class="flex items-center justify-between flex-wrap gap-4">
-            <div class="flex items-center gap-4">
-              <img src="/EasyGrade.png" alt="EasyGrade" class="h-12 w-auto" />
-              <div>
-                <h1 class="text-2xl font-bold text-green-700">
-                  {student.student_name}
-                </h1>
-                <p class="text-sm text-gray-600">Student ID: {student.student_code || student.student_id}</p>
-                <div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-500">
-                  <span class="flex items-center gap-1">
-                    <BookOpen class="w-3.5 h-3.5" />
-                    {classInfo?.class_name || 'N/A'}
-                  </span>
-                  {#if classInfo?.section}
-                    <span>• {classInfo.section}</span>
-                  {/if}
-                  {#if classInfo?.instructor}
-                    <span>• {classInfo.instructor}</span>
-                  {/if}
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div class="flex items-center gap-4 w-full sm:w-auto">
+              {#if gradesReady}
+                <img src="/EasyGrade.png" alt="EasyGrade" class="h-12 w-auto" />
+                <div>
+                  <h1 class="text-2xl font-bold text-green-700">
+                    {student.student_name}
+                  </h1>
+                  <p class="text-sm text-gray-600">Student ID: {student.student_code || student.student_id}</p>
+                  <div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-500">
+                    <span class="flex items-center gap-1">
+                      <BookOpen class="w-3.5 h-3.5" />
+                      {classInfo?.class_name || 'N/A'}
+                    </span>
+                    {#if classInfo?.section}
+                      <span>• {classInfo.section}</span>
+                    {/if}
+                    {#if classInfo?.instructor}
+                      <span>• {classInfo.instructor}</span>
+                    {/if}
+                  </div>
                 </div>
-              </div>
+              {:else}
+                <div class="h-12 w-12 bg-gray-200 rounded mr-2 animate-pulse"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="h-6 w-48 bg-gray-200 rounded animate-pulse"></div>
+                  <div class="h-4 w-40 bg-gray-200 rounded mt-2 animate-pulse"></div>
+                  <div class="flex gap-2 mt-3">
+                    <div class="h-4 w-20 bg-gray-200 rounded animate-pulse"></div>
+                    <div class="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              {/if}
             </div>
-            <div class="text-right">
+            <div class="w-full sm:w-auto sm:text-right">
               <p class="text-sm text-green/90 font-medium mb-1">Final Grade</p>
-              <div class="flex items-center gap-3">
-                {#if finalGrade > 0}
-                  <div class="text-3xl font-bold text-green-600">{finalGradeScale}</div>
+              <div class="flex items-center sm:justify-end gap-3">
+                {#if gradesReady && finalGrade > 0}
+                  <div class="flex items-baseline gap-2">
+                    <span class="text-3xl font-bold text-green-600">{finalGradeScale}</span>
+                    <span class="text-lg text-gray-500">({finalPercent}%)</span>
+                  </div>
                   {#if parseFloat(finalGradeScale) <= 3.0 && parseFloat(finalGradeScale) >= 1.0}
                     <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-600 rounded-full text-xs font-semibold mt-2">
                       <CircleCheck class="w-3.5 h-3.5" />
@@ -871,7 +877,7 @@ function getFinalGrade(): number {
                     </div>
                   {/if}
                 {:else}
-                  <div class="h-8 w-20 bg-gray-200 rounded animate-pulse"></div>
+                  <div class="h-8 w-24 bg-gray-200 rounded animate-pulse"></div>
                 {/if}
               </div>
             </div>
@@ -881,10 +887,9 @@ function getFinalGrade(): number {
 
       <!-- Grade Cards -->
       <div class="grid md:grid-cols-2 gap-6 mb-8">
-        {#each terms as term}
+        {#each terms.filter(t => !gradesReady || getTermGrade(t.term_id) > 0) as term}
           {@const termGrade = getTermGrade(term.term_id)}
           {@const gradeScale = convertGradeToScale(termGrade)}
-          {#if termGrade > 0}
           <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
             <div class="bg-gray-50 border-b border-gray-200 px-6 py-4">
               <div class="flex items-center justify-between">
@@ -892,12 +897,12 @@ function getFinalGrade(): number {
                   <Calendar class="w-5 h-5 text-gray-600" />
                   <h2 class="text-lg font-bold text-gray-800">{term.term_name}</h2>
                 </div>
-                {#if parseFloat(gradeScale) <= 3.0 && parseFloat(gradeScale) >= 1.0}
+                {#if gradesReady && parseFloat(gradeScale) <= 3.0 && parseFloat(gradeScale) >= 1.0}
                   <div class="flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
                     <CircleCheck class="w-3.5 h-3.5" />
                     PASSED
                   </div>
-                {:else if gradeScale === '5.00'}
+                {:else if gradesReady && gradeScale === '5.00'}
                   <div class="flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
                     <CircleX class="w-3.5 h-3.5" />
                     FAILED
@@ -910,13 +915,19 @@ function getFinalGrade(): number {
                 <div>
                   <p class="text-sm text-gray-500 mb-1">Grade</p>
                   <div class="flex items-baseline gap-2">
-                    <span class="text-4xl font-bold text-gray-900">{gradeScale}</span>
-                    <span class="text-lg text-gray-500">({termGrade}%)</span>
+                    {#if gradesReady && termGrade > 0}
+                      <span class="text-4xl font-bold text-gray-900">{gradeScale}</span>
+                      <span class="text-lg text-gray-500">({termGrade}%)</span>
+                    {:else}
+                      <span class="text-4xl font-bold text-gray-900">--</span>
+                      <span class="h-6 w-20 bg-gray-200 rounded animate-pulse"></span>
+                    {/if}
                   </div>
                 </div>
               </div>
 
               <!-- Component Breakdown -->
+              {#if gradesReady}
               <div class="pt-6 border-t border-gray-200">
                 <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                   <TrendingUp class="w-4 h-4" />
@@ -972,13 +983,13 @@ function getFinalGrade(): number {
                   {/if}
                 </div>
               </div>
+              {/if}
             </div>
           </div>
-          {/if}
         {/each}
       </div>
 
-      {#if Object.keys(termGrades).length === 0}
+      {#if gradesReady && Object.keys(termGrades).length === 0}
         <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
           <p class="text-yellow-800 font-medium">No grades available yet.</p>
           <p class="text-yellow-600 text-sm mt-2">Your teacher hasn't entered any grades for this class yet.</p>
