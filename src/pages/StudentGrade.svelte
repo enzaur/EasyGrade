@@ -58,6 +58,27 @@
   let consentGiven = false;
   let realtimeChannel: any = null;
   let gradesReady = false;
+  let confettiFired = false;
+  // Reactive header values for final grade
+  let headerFinal = 0;
+  let headerScale = '-';
+  let headerPercent = '0.00';
+  $: headerFinal = getFinalGrade();
+  $: headerScale = convertGradeToScale(headerFinal);
+  $: headerPercent = headerFinal.toFixed(2);
+
+  $: if (student && gradesReady && !confettiFired) {
+    const hasAnyTerm = Object.values(termGrades).some((v) => typeof v === 'number' && v > 0);
+    if (hasAnyTerm) {
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107']
+      });
+      confettiFired = true;
+    }
+  }
 
   // Convert percentage grade to 1.00-3.00 scale
   function convertGradeToScale(percentage: number): string {
@@ -104,11 +125,18 @@ function getFinalGrade(): number {
   let sum = 0;
   let count = 0;
   for (const t of terms) {
+    // A term is considered existing if it has component grades > 0 or attendance records
+    const hasAttendance = !!(attendanceData[t.term_id] && attendanceData[t.term_id].total > 0);
+    const hasComponent = components.some(c => {
+      const v = componentGrades[`${t.term_id}-${c.component_id}`];
+      return typeof v === 'number' && v > 0;
+    });
+    const hasAnyData = hasAttendance || hasComponent;
+    if (!hasAnyData) continue;
+
     const percentageGrade = getTermGrade(t.term_id);
-    if (percentageGrade > 0) {
-      sum += percentageGrade;
-      count++;
-    }
+    sum += percentageGrade;
+    count++;
   }
   return count > 0 ? +(sum / count).toFixed(2) : 0;
 }
@@ -238,14 +266,9 @@ function getFinalGrade(): number {
       student = studentData;
       showForm = false;
       gradesReady = false;
+      confettiFired = false;
       
-      // Trigger confetti on successful login
-      confetti({
-        particleCount: 100,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#4CAF50', '#8BC34A', '#CDDC39', '#FFEB3B', '#FFC107']
-      });
+      
 
       // Fetch grades from database (what Gradebook calculated and saved)
       if (selectedYearId) {
@@ -387,7 +410,7 @@ function getFinalGrade(): number {
           components.forEach(comp => {
             const weight = componentWeights[comp.component_id] || 0;
             const compAvg = componentGrades[`${term.term_id}-${comp.component_id}`];
-            // Only include components that have actual grades
+            // Only include components that have actual grades (> 0)
             if (typeof compAvg === 'number' && Number.isFinite(compAvg) && weight > 0 && compAvg > 0) {
               componentScores.push({
                 score: compAvg,
@@ -396,14 +419,26 @@ function getFinalGrade(): number {
             }
           });
 
-          // Calculate attendance percentage
+          // Calculate attendance percentage (only if there is actual attendance data)
           const attData = attendanceData[term.term_id];
-          const rawPercentage = attData ? (attData.total > 0 ? (attData.present / attData.total * 100) : 0) : 0;
-          const attendancePercentage = attData ? (rawPercentage * 0.4) + 60 : 0;
+          const hasAttendance = !!(attData && attData.total > 0);
+          const rawPercentage = hasAttendance ? (attData.present / attData.total * 100) : 0;
+          const attendancePercentage = hasAttendance ? (rawPercentage * 0.4) + 60 : 0;
 
-          // Calculate behavior: (quiz + activity + exam + attendance) / 4 × 2.5%
-          const allFactors = [...componentScores.map(c => c.score), attendancePercentage];
-          const behaviorAverage = allFactors.reduce((sum, score) => sum + score, 0) / allFactors.length;
+          // Determine if the term has any actual data
+          const hasComponents = componentScores.length > 0;
+          const hasAnyData = hasComponents || hasAttendance;
+
+          if (!hasAnyData) {
+            behaviorScores[term.term_id] = 0;
+            termGrades[term.term_id] = 0;
+            return;
+          }
+
+          // Calculate behavior: average of available factors × 2.5%
+          const behaviorFactors = hasComponents ? componentScores.map(c => c.score) : [];
+          if (hasAttendance) behaviorFactors.push(attendancePercentage);
+          const behaviorAverage = behaviorFactors.reduce((sum, score) => sum + score, 0) / behaviorFactors.length;
           const behaviorContribution = +(behaviorAverage * 0.025).toFixed(2);
           behaviorScores[term.term_id] = behaviorContribution;
 
@@ -412,7 +447,7 @@ function getFinalGrade(): number {
           const totalWeightedScore = weightedScores.reduce((sum, score) => sum + score, 0);
 
           // Term grade = weighted components + behavior (2.5%) + attendance (2.5%)
-          const finalGrade = totalWeightedScore + behaviorContribution + (attendancePercentage * 0.025);
+          const finalGrade = totalWeightedScore + behaviorContribution + (hasAttendance ? (attendancePercentage * 0.025) : 0);
           termGrades[term.term_id] = +finalGrade.toFixed(2);
         });
 
@@ -588,7 +623,8 @@ function getFinalGrade(): number {
       components.forEach(comp => {
         const weight = componentWeights[comp.component_id] || 0;
         const compAvg = componentGrades[`${term.term_id}-${comp.component_id}`];
-        if (typeof compAvg === 'number' && Number.isFinite(compAvg) && weight > 0) {
+        // Only include components that have actual grades (> 0)
+        if (typeof compAvg === 'number' && Number.isFinite(compAvg) && weight > 0 && compAvg > 0) {
           componentScores.push({
             score: compAvg,
             weight: weight
@@ -596,17 +632,26 @@ function getFinalGrade(): number {
         }
       });
 
-      // Calculate attendance percentage
-      let attendancePercentage = 60; // Default 60%
+      // Calculate attendance percentage (only if there is actual attendance data)
       const attData = attendanceData[term.term_id];
-      if (attData) {
-        const rawPercentage = attData.total > 0 ? (attData.present / attData.total * 100) : 100;
-        attendancePercentage = (rawPercentage * 0.4) + 60;
+      const hasAttendance = !!(attData && attData.total > 0);
+      const rawPercentage = hasAttendance ? (attData.present / attData.total * 100) : 0;
+      const attendancePercentage = hasAttendance ? (rawPercentage * 0.4) + 60 : 0;
+
+      // Determine if the term has any actual data
+      const hasComponents = componentScores.length > 0;
+      const hasAnyData = hasComponents || hasAttendance;
+
+      if (!hasAnyData) {
+        behaviorScores[term.term_id] = 0;
+        termGrades[term.term_id] = 0;
+        return;
       }
 
-      // Calculate behavior: (quiz + activity + exam + attendance) / 4 × 2.5%
-      const allFactors = [...componentScores.map(c => c.score), attendancePercentage];
-      const behaviorAverage = allFactors.reduce((sum, score) => sum + score, 0) / allFactors.length;
+      // Calculate behavior: average of available factors × 2.5%
+      const behaviorFactors = hasComponents ? componentScores.map(c => c.score) : [];
+      if (hasAttendance) behaviorFactors.push(attendancePercentage);
+      const behaviorAverage = behaviorFactors.reduce((sum, score) => sum + score, 0) / behaviorFactors.length;
       const behaviorContribution = +(behaviorAverage * 0.025).toFixed(2);
       behaviorScores[term.term_id] = behaviorContribution;
 
@@ -615,7 +660,7 @@ function getFinalGrade(): number {
       const totalWeightedScore = weightedScores.reduce((sum, score) => sum + score, 0);
 
       // Term grade = weighted components + behavior (2.5%) + attendance (2.5%)
-      const finalGrade = totalWeightedScore + behaviorContribution + (attendancePercentage * 0.025);
+      const finalGrade = totalWeightedScore + behaviorContribution + (hasAttendance ? (attendancePercentage * 0.025) : 0);
       termGrades[term.term_id] = +finalGrade.toFixed(2);
     });
     
@@ -733,8 +778,7 @@ function getFinalGrade(): number {
             }}
             class="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={!consentGiven}
-          >
-            I Agree - Continue
+          >I Agree - Continue
           </button>
           <button
             onclick={() => {
@@ -818,66 +862,51 @@ function getFinalGrade(): number {
       </div>
     {:else if student}
       <!-- Header Section with Final Grade -->
-      {@const finalGrade = getFinalGrade()}
-      {@const finalGradeScale = convertGradeToScale(finalGrade)}
-      {@const finalPercent = finalGrade.toFixed(2)}
       <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden mb-6">
         <div class="bg-white px-6 py-4">
           <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div class="flex items-center gap-4 w-full sm:w-auto">
-              {#if gradesReady}
-                <img src="/EasyGrade.png" alt="EasyGrade" class="h-12 w-auto" />
-                <div>
-                  <h1 class="text-2xl font-bold text-green-700">
-                    {student.student_name}
-                  </h1>
-                  <p class="text-sm text-gray-600">Student ID: {student.student_code || student.student_id}</p>
-                  <div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-500">
-                    <span class="flex items-center gap-1">
-                      <BookOpen class="w-3.5 h-3.5" />
-                      {classInfo?.class_name || 'N/A'}
-                    </span>
-                    {#if classInfo?.section}
-                      <span>• {classInfo.section}</span>
-                    {/if}
-                    {#if classInfo?.instructor}
-                      <span>• {classInfo.instructor}</span>
-                    {/if}
-                  </div>
+              <img src="/EasyGrade.png" alt="EasyGrade" class="h-12 w-auto" />
+              <div>
+                <h1 class="text-2xl font-bold text-green-700">
+                  {student.student_name}
+                </h1>
+                <p class="text-sm text-gray-600">Student ID: {student.student_code || student.student_id}</p>
+                <div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-500">
+                  <span class="flex items-center gap-1">
+                    <BookOpen class="w-3.5 h-3.5" />
+                    {classInfo?.class_name || 'N/A'}
+                  </span>
+                  {#if classInfo?.section}
+                    <span>• {classInfo.section}</span>
+                  {/if}
+                  {#if classInfo?.instructor}
+                    <span>• {classInfo.instructor}</span>
+                  {/if}
                 </div>
-              {:else}
-                <div class="h-12 w-12 bg-gray-200 rounded mr-2 animate-pulse"></div>
-                <div class="flex-1 min-w-0">
-                  <div class="h-6 w-48 bg-gray-200 rounded animate-pulse"></div>
-                  <div class="h-4 w-40 bg-gray-200 rounded mt-2 animate-pulse"></div>
-                  <div class="flex gap-2 mt-3">
-                    <div class="h-4 w-20 bg-gray-200 rounded animate-pulse"></div>
-                    <div class="h-4 w-24 bg-gray-200 rounded animate-pulse"></div>
-                  </div>
-                </div>
-              {/if}
+              </div>
             </div>
             <div class="w-full sm:w-auto sm:text-right">
               <p class="text-sm text-green/90 font-medium mb-1">Final Grade</p>
               <div class="flex items-center sm:justify-end gap-3">
-                {#if gradesReady && finalGrade > 0}
+                {#if gradesReady && Object.values(termGrades).some(v => typeof v === 'number' && v > 0)}
                   <div class="flex items-baseline gap-2">
-                    <span class="text-3xl font-bold text-green-600">{finalGradeScale}</span>
-                    <span class="text-lg text-gray-500">({finalPercent}%)</span>
+                    <span class="text-3xl font-bold text-green-600">{headerScale}</span>
+                    <span class="text-lg text-gray-500">({headerPercent}%)</span>
                   </div>
-                  {#if parseFloat(finalGradeScale) <= 3.0 && parseFloat(finalGradeScale) >= 1.0}
+                  {#if parseFloat(headerScale) <= 3.0 && parseFloat(headerScale) >= 1.0}
                     <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-600 rounded-full text-xs font-semibold mt-2">
                       <CircleCheck class="w-3.5 h-3.5" />
                       PASSED
                     </div>
-                  {:else if finalGradeScale === '5.00'}
+                  {:else if headerScale === '5.00'}
                     <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-600 rounded-full text-xs font-semibold mt-2">
                       <CircleX class="w-3.5 h-3.5" />
                       FAILED
                     </div>
                   {/if}
                 {:else}
-                  <div class="h-8 w-24 bg-gray-200 rounded animate-pulse"></div>
+                  <div class="text-3xl font-bold text-gray-400">--</div>
                 {/if}
               </div>
             </div>
@@ -886,8 +915,9 @@ function getFinalGrade(): number {
       </div>
 
       <!-- Grade Cards -->
+      {#if gradesReady}
       <div class="grid md:grid-cols-2 gap-6 mb-8">
-        {#each terms.filter(t => !gradesReady || getTermGrade(t.term_id) > 0) as term}
+        {#each terms.filter(t => getTermGrade(t.term_id) > 0) as term}
           {@const termGrade = getTermGrade(term.term_id)}
           {@const gradeScale = convertGradeToScale(termGrade)}
           <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
@@ -919,15 +949,13 @@ function getFinalGrade(): number {
                       <span class="text-4xl font-bold text-gray-900">{gradeScale}</span>
                       <span class="text-lg text-gray-500">({termGrade}%)</span>
                     {:else}
-                      <span class="text-4xl font-bold text-gray-900">--</span>
-                      <span class="h-6 w-20 bg-gray-200 rounded animate-pulse"></span>
+                      <span class="text-4xl font-bold text-gray-400">--</span>
                     {/if}
                   </div>
                 </div>
               </div>
 
               <!-- Component Breakdown -->
-              {#if gradesReady}
               <div class="pt-6 border-t border-gray-200">
                 <h3 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                   <TrendingUp class="w-4 h-4" />
@@ -944,50 +972,49 @@ function getFinalGrade(): number {
                     ]}
                     {@const color = colors[idx % colors.length]}
                     {@const actualScore = (compAvg * weight).toFixed(2)}
-                    {@const weightPercent = (weight * 100).toFixed(1)}
+                    {@const weightPercent = (weight * 100).toFixed(2)}
                     <div class="{color.bg} rounded-lg p-3 border {color.border}">
                       <div class="flex justify-between items-center">
                         <span class="text-sm {color.text} font-medium">{comp.component_name}</span>
-                        <span class="text-sm font-bold {color.textBold}">{actualScore}% / {weightPercent}%</span>
+                        {#if gradesReady && compAvg > 0}
+                          <span class="text-sm font-bold {color.textBold}">{actualScore}% / {weightPercent}%</span>
+                        {:else}
+                          <span class="text-sm font-bold {color.textBold}">--% / {weightPercent}%</span>
+                        {/if}
                       </div>
                     </div>
                   {/each}
                   
-                  <!-- Behavior Score: only show if it has a non-zero value -->
-                  {#if behaviorScores[term.term_id] > 0}
-                    {@const behaviorScore = behaviorScores[term.term_id]}
-                    <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                      <div class="flex justify-between items-center">
-                        <span class="text-sm text-blue-700 font-medium">Behavior</span>
-                        <span class="text-sm font-bold text-blue-900">{behaviorScore.toFixed(2)}% / 2.5%</span>
-                      </div>
+                  <!-- Behavior Score -->
+                  <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                    <div class="flex justify-between items-center">
+                      <span class="text-sm text-blue-700 font-medium">Behavior</span>
+                      {#if gradesReady && behaviorScores[term.term_id] > 0}
+                        <span class="text-sm font-bold text-blue-900">{behaviorScores[term.term_id].toFixed(2)}% / 2.50%</span>
+                      {:else}
+                        <span class="text-sm font-bold text-blue-900">--% / 2.50%</span>
+                      {/if}
                     </div>
-                  {/if}
+                  </div>
                   
                   <!-- Attendance Score -->
-                  {#if true}
-                    {@const attData = attendanceData[term.term_id]}
-                    {@const rawPercentage = attData ? (attData.total > 0 ? (attData.present / attData.total * 100) : 0) : 0}
-                    {@const adjustedPercentage = rawPercentage ? (rawPercentage * 0.4) + 60 : 0}
-                    {@const attScore = (adjustedPercentage * 0.025).toFixed(2)}
-                    <div class="bg-green-50 rounded-lg p-3 border border-green-200">
-                      <div class="flex justify-between items-center">
-                        <span class="text-sm text-green-700 font-medium">Attendance</span>
-                        {#if attData}
-                          <span class="text-sm font-bold text-green-900">{attScore}% / 2.5%</span>
-                        {:else}
-                          <div class="h-4 w-16 bg-gray-200 rounded animate-pulse"></div>
-                        {/if}
-                      </div>
+                  <div class="bg-green-50 rounded-lg p-3 border border-green-200">
+                    <div class="flex justify-between items-center">
+                      <span class="text-sm text-green-700 font-medium">Attendance</span>
+                      {#if gradesReady && attendanceData[term.term_id]}
+                        <span class="text-sm font-bold text-green-900">{((( (attendanceData[term.term_id].total > 0 ? (attendanceData[term.term_id].present / attendanceData[term.term_id].total * 100) : 0) * 0.4) + 60) * 0.025).toFixed(2)}% / 2.50%</span>
+                      {:else}
+                        <span class="text-sm font-bold text-green-900">--% / 2.50%</span>
+                      {/if}
                     </div>
-                  {/if}
+                  </div>
                 </div>
               </div>
-              {/if}
             </div>
           </div>
         {/each}
       </div>
+      {/if}
 
       {#if gradesReady && Object.keys(termGrades).length === 0}
         <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
@@ -998,7 +1025,7 @@ function getFinalGrade(): number {
 
       <!-- Footer -->
       <div class="text-center mt-6 text-sm text-gray-500">
-        <p>Keep up the great work! 📚</p>
+        <p>You're on the right track. Keep it up 📚</p>
       </div>
     {/if}
   </div>
